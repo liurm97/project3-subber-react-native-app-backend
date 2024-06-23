@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define database models
+
+enum SubscriptionCategory {
+  music_streaming
+  video_streaming
+  food_delivery
+  insurance
+  others
+}
+
+enum PlanFrequency {
+  day
+  month
+  year
+}
+
+enum NotificationType {
+  none
+  app
+  email
+}
+
+enum NotificationFrequency {
+  none
+  one_day_before
+  three_day_before
+}
+
+model User {
+  id        String      @id @default(uuid())
+  clerk_user_id String      @unique
+  first_name String
+  last_name String
+  email String  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  subscribed_subscriptions SubscriptionsOnUsers[]
+  user_subscription Subscription[]
+
+}
+
+model Subscription {
+  id String @id @default(uuid())
+  name String @unique
+  image_url String 
+  category SubscriptionCategory 
+  user_id String?
+  user User? @relation(fields: [user_id], references: [id])//accept null -> The default 10 subscription
+  subscribed_users SubscriptionsOnUsers[]
+}
+
+model SubscriptionsOnUsers {
+  id String @id @default(uuid())
+  user_id String @unique // relation scalar field (used in the `@relation` attribute above)
+  subscription_id     String // relation scalar field (used in the `@relation` attribute above)
+  plan_id String @unique
+  payment_start_date String
+  payment_next_date String
+  payment_end_date String
+  has_notifications Boolean
+  notification_type NotificationType?
+  notification_frequency NotificationFrequency?
+  notification_time_of_day String?
+  subscription       Subscription     @relation(fields: [subscription_id], references: [id])
+  subscribed_user   User @relation(fields: [user_id], references: [id])
+  subcription_plan Plan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+}
+
+model Plan {
+  id String @id @default(uuid())
+  name String
+  price Decimal
+  billing_period_value Int
+  billing_period_frequency PlanFrequency
+  subscribed_plan SubscriptionsOnUsers?
+}
