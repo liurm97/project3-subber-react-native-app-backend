@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import db from "../utils/db.server";
+import { v4 } from "uuid";
 const dayjs = require("dayjs");
+import { parseBillingPeriod, returnPaymentNextDate } from "../utils/helpers";
 import {
   Prisma,
   PlanFrequency,
@@ -8,6 +10,7 @@ import {
   NotificationType,
   SubscriptionCategory,
 } from "@prisma/client";
+import { create } from "domain";
 
 class SubscriptionController {
   constructor() {}
@@ -150,10 +153,7 @@ class SubscriptionController {
 
   subcribeToExistingSubscription = async (req: Request, res: Response) => {
     const userId = req.params.userId;
-    let [planId, subscriptionsOnUsersResult]: [any, any] = [
-      undefined,
-      undefined,
-    ];
+    const planId = v4();
     const {
       subscriptionId, // Not sure if this is provided by the FE
       planName,
@@ -167,26 +167,120 @@ class SubscriptionController {
       notes,
     } = req.body;
 
+    // format values
+    const paymentNextDate = returnPaymentNextDate(
+      paymentStartDate,
+      billingPeriod
+    );
+    const { value, frequency } = parseBillingPeriod(billingPeriod);
+
     // check that userId is valid
-    const uniqueUserId = await db.user.findUnique({ where: { id: userId } });
-    if (uniqueUserId == null)
+    const { id }: any = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (id == null)
       res.status(404).json({
         message: `user id ${userId} cannot be found. please try again`,
       });
     else {
-      // format billing period -> billing_period_value and billing_period_frequency
-      let [_, billing_period_value, billing_period_frequency]: [
-        any,
-        string | number,
-        PlanFrequency
-      ] = billingPeriod.split(" ");
-      billing_period_value = Number(billing_period_value);
+      await db.plan.create({
+        data: {
+          name: planName,
+          price: planPrice,
+          billing_period_value: value,
+          billing_period_frequency: frequency,
+          subscribed_plan: {
+            create: {
+              id: v4(),
+              user_id: userId,
+              subscription_id: subscriptionId,
+              payment_start_date: paymentStartDate,
+              payment_next_date: paymentNextDate,
+              payment_end_date: paymentEndDate,
+              has_notifications: false,
+              plan_id: planId,
+              notes: notes,
+            },
+          },
+        },
+      });
+      res.status(201).json({ message: "success" });
     }
   };
+
   subcribeToNewSubscription = async (req: Request, res: Response) => {
-    // subscription
-    // user
-    // plan
+    const userId = req.params.userId;
+    const {
+      subscriptionName,
+      image_url,
+      category,
+      planName,
+      planPrice,
+      billingPeriod,
+      paymentStartDate,
+      paymentEndDate,
+      notificationType,
+      notificationPeriod,
+      notificationTime,
+      notes,
+    } = req.body;
+
+    // format values
+    const paymentNextDate = returnPaymentNextDate(
+      paymentStartDate,
+      billingPeriod
+    );
+    const { value, frequency } = parseBillingPeriod(billingPeriod);
+    const planId = v4();
+    const subscriptionId = v4();
+
+    // check that userId is valid
+    const { id }: any = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (id == null)
+      res.status(404).json({
+        message: `user id ${userId} cannot be found. please try again`,
+      });
+
+    const [subscription, plan]: [
+      Prisma.SubscriptionCreateInput,
+      Prisma.PlanCreateInput
+    ] = await db.$transaction([
+      db.subscription.create({
+        data: {
+          id: subscriptionId,
+          name: subscriptionName,
+          image_url: image_url,
+          category: category,
+          user_id: userId,
+        },
+      }),
+      db.plan.create({
+        data: {
+          name: planName,
+          price: planPrice,
+          billing_period_value: value,
+          billing_period_frequency: frequency,
+          subscribed_plan: {
+            create: {
+              id: v4(),
+              user_id: userId,
+              subscription_id: subscriptionId,
+              payment_start_date: paymentStartDate,
+              payment_next_date: paymentNextDate,
+              payment_end_date: paymentEndDate,
+              has_notifications: false,
+              plan_id: planId,
+              notes: notes,
+            },
+          },
+        },
+      }),
+    ]);
+    res.status(201).json({ message: "success" });
   };
 
   listSubscribedSubscriptions = async (req: Request, res: Response) => {

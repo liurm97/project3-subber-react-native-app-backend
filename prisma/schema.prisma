@@ -66,7 +66,7 @@ model Subscription {
 
 model SubscriptionsOnUsers {
   id String @id @default(uuid())
-  user_id String @unique // relation scalar field (used in the `@relation` attribute above)
+  user_id String // relation scalar field (used in the `@relation` attribute above)
   subscription_id     String // relation scalar field (used in the `@relation` attribute above)
   plan_id String @unique
   payment_start_date String
@@ -77,9 +77,9 @@ model SubscriptionsOnUsers {
   notification_frequency NotificationFrequency?
   notification_time_of_day String?
   subscription       Subscription     @relation(fields: [subscription_id], references: [id])
-  subscribed_user   User @relation(fields: [user_id], references: [id])
-  subcription_plan Plan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
-
+  subscribed_user   User? @relation(fields: [user_id], references: [id])
+  subcription_plan Plan?
+  notes String?
 }
 
 model Plan {
@@ -88,5 +88,5 @@ model Plan {
   price Decimal
   billing_period_value Int
   billing_period_frequency PlanFrequency
-  subscribed_plan SubscriptionsOnUsers?
+  subscribed_plan SubscriptionsOnUsers? @relation(fields: [id], references: [plan_id], onDelete: Cascade)
 }

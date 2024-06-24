@@ -31,14 +31,14 @@ subscriptionRouter.get(
 // Subscribe based on existing subscription
 // -- Will not have to create a new subscription
 subscriptionRouter.post(
-  "/subscribed/users/:userId",
+  "/subscribed/existing/users/:userId",
   subscriptionController.subcribeToExistingSubscription
 );
 
 // First create a new subscription and then subscribe to it
 // -- Will have to first create a new subscription
 subscriptionRouter.post(
-  "/subscribed/users/:userId",
+  "/subscribed/new/users/:userId",
   subscriptionController.subcribeToNewSubscription
 );
 
