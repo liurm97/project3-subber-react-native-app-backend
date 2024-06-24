@@ -162,7 +162,7 @@ class SubscriptionController {
       paymentStartDate,
       paymentEndDate,
       notificationType,
-      notificationPeriod,
+      notificationFrequency,
       notificationTime,
       notes,
     } = req.body;
@@ -199,6 +199,9 @@ class SubscriptionController {
               payment_next_date: paymentNextDate,
               payment_end_date: paymentEndDate,
               has_notifications: false,
+              notification_type: notificationType,
+              notification_frequency: notificationFrequency,
+              notification_time_of_day: notificationTime,
               plan_id: planId,
               notes: notes,
             },
@@ -221,7 +224,7 @@ class SubscriptionController {
       paymentStartDate,
       paymentEndDate,
       notificationType,
-      notificationPeriod,
+      notificationFrequency,
       notificationTime,
       notes,
     } = req.body;
@@ -234,53 +237,63 @@ class SubscriptionController {
     const { value, frequency } = parseBillingPeriod(billingPeriod);
     const planId = v4();
     const subscriptionId = v4();
-
-    // check that userId is valid
-    const { id }: any = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (id == null)
-      res.status(404).json({
-        message: `user id ${userId} cannot be found. please try again`,
+    try {
+      // check that userId is valid
+      const { id }: any = await db.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
       });
-
-    const [subscription, plan]: [
-      Prisma.SubscriptionCreateInput,
-      Prisma.PlanCreateInput
-    ] = await db.$transaction([
-      db.subscription.create({
-        data: {
-          id: subscriptionId,
-          name: subscriptionName,
-          image_url: image_url,
-          category: category,
-          user_id: userId,
-        },
-      }),
-      db.plan.create({
-        data: {
-          name: planName,
-          price: planPrice,
-          billing_period_value: value,
-          billing_period_frequency: frequency,
-          subscribed_plan: {
-            create: {
-              id: v4(),
-              user_id: userId,
-              subscription_id: subscriptionId,
-              payment_start_date: paymentStartDate,
-              payment_next_date: paymentNextDate,
-              payment_end_date: paymentEndDate,
-              has_notifications: false,
-              plan_id: planId,
-              notes: notes,
+      console.log("id", id);
+      const [subscription, plan]: [
+        Prisma.SubscriptionCreateInput,
+        Prisma.PlanCreateInput
+      ] = await db.$transaction([
+        db.subscription.create({
+          data: {
+            id: subscriptionId,
+            name: subscriptionName,
+            image_url: image_url,
+            category: category,
+            user_id: userId,
+          },
+        }),
+        db.plan.create({
+          data: {
+            name: planName,
+            price: planPrice,
+            billing_period_value: value,
+            billing_period_frequency: frequency,
+            subscribed_plan: {
+              create: {
+                id: v4(),
+                user_id: userId,
+                subscription_id: subscriptionId,
+                payment_start_date: paymentStartDate,
+                payment_next_date: paymentNextDate,
+                payment_end_date: paymentEndDate,
+                has_notifications: false,
+                notification_type: notificationType,
+                notification_frequency: notificationFrequency,
+                notification_time_of_day: notificationTime,
+                plan_id: planId,
+                notes: notes,
+              },
             },
           },
-        },
-      }),
-    ]);
-    res.status(201).json({ message: "success" });
+        }),
+      ]);
+      console.log("executed");
+      res.status(201).json({ message: "success" });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        res.status(404).json({ error: "The provided user id cannot be found" });
+      } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        console.log(error.code, error.message);
+        res.status(400).json({ description: error.meta, error: error.message });
+      } else {
+        res.status(400).json({ message: "something unexpected happened" });
+      }
+    }
   };
 
   listSubscribedSubscriptions = async (req: Request, res: Response) => {

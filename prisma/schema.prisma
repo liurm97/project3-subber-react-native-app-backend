@@ -80,6 +80,8 @@ model SubscriptionsOnUsers {
   subscribed_user   User? @relation(fields: [user_id], references: [id])
   subcription_plan Plan?
   notes String?
+  created_date DateTime @default(now())
+  updated_date DateTime @updatedAt
 }
 
 model Plan {
