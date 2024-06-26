@@ -1,4 +1,4 @@
-import { PlanFrequency } from "@prisma/client";
+import { NotificationFrequency, PlanFrequency } from "@prisma/client";
 
 const dayjs = require("dayjs");
 
@@ -38,4 +38,24 @@ export const returnPaymentNextDate = (
   )
     .format("YYYY-MM-DD")
     .toString();
+};
+
+export const parseNotificationPeriod = (
+  notificationPeriod: string
+): NotificationFrequency => {
+  /**
+  map:
+  - none -> none
+  - 1 day before -> one_day_before
+  - 3 day before -> three_day_before
+   */
+
+  if (notificationPeriod === "none") return "none";
+  else if (notificationPeriod === "1 day before") return "one_day_before";
+  else return "three_day_before";
+};
+
+export const returnHasNotification = (notification_type: string): boolean => {
+  if (notification_type === "none") return false;
+  else return true;
 };

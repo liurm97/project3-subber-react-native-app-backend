@@ -2,7 +2,12 @@ import { Request, Response } from "express";
 import db from "../utils/db.server";
 import { v4 } from "uuid";
 const dayjs = require("dayjs");
-import { parseBillingPeriod, returnPaymentNextDate } from "../utils/helpers";
+import {
+  parseBillingPeriod,
+  returnPaymentNextDate,
+  parseNotificationPeriod,
+  returnHasNotification,
+} from "../utils/helpers";
 import {
   Prisma,
   PlanFrequency,
@@ -175,11 +180,11 @@ class SubscriptionController {
     const { value, frequency } = parseBillingPeriod(billingPeriod);
 
     // check that userId is valid
-    const { id }: any = await db.user.findUnique({
+    const userResult = await db.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
-    if (id == null)
+    if (userResult == null)
       res.status(404).json({
         message: `user id ${userId} cannot be found. please try again`,
       });
@@ -243,7 +248,6 @@ class SubscriptionController {
         where: { id: userId },
         select: { id: true },
       });
-      console.log("id", id);
       const [subscription, plan]: [
         Prisma.SubscriptionCreateInput,
         Prisma.PlanCreateInput
@@ -282,7 +286,6 @@ class SubscriptionController {
           },
         }),
       ]);
-      console.log("executed");
       res.status(201).json({ message: "success" });
     } catch (error) {
       if (error instanceof TypeError) {
@@ -298,100 +301,190 @@ class SubscriptionController {
 
   listSubscribedSubscriptions = async (req: Request, res: Response) => {
     const userId = req.params.userId;
-    let [uniqueUserId, subscribedSubscriptions]: [any, any] = [
-      undefined,
-      undefined,
-    ];
-    [uniqueUserId, subscribedSubscriptions] = await db.$transaction([
-      // 1. Check if userId is valid
-      db.user.findUnique({ where: { id: userId } }),
-      // Roll back if not valid
-      // if valid:
-      // 3. Get all user subscribed subscriptions
-      db.subscription.findMany({
+    try {
+      const { id }: any = await db.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
+      // retrive subscribed subscriptions
+      /** Details to retrieve | Model
+       1. Subscription name | subscription
+       2. Subscription image_url | subscription
+       3. Plan price | plan
+       4. Plan billing_period_value | plan
+       5. Plan billing_period_frequency | plan
+       */
+
+      const subscribedSubscriptions = await db.subscriptionsOnUsers.findMany({
         where: {
           user_id: {
             equals: userId,
           },
         },
         select: {
-          name: true,
-          image_url: true,
-          subscribed_users: {
+          id: true,
+          subcription_plan: {
             select: {
-              plan_id: true,
-              subcription_plan: {
-                select: {
-                  price: true,
-                  billing_period_value: true,
-                  billing_period_frequency: true,
-                },
-              },
+              price: true,
+              billing_period_value: true,
+              billing_period_frequency: true,
+            },
+          },
+          subscription: {
+            select: {
+              name: true,
+              image_url: true,
             },
           },
         },
-      }),
-    ]);
-
-    if (uniqueUserId == null)
-      res.status(404).json({
-        message: `user id ${userId} cannot be found. please try again`,
       });
+      res
+        .status(200)
+        .json({ message: "success", subscriptions: subscribedSubscriptions });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        res.status(404).json({ error: "The provided user id cannot be found" });
+      }
+    }
   };
-  deleteSubscribedUserSubscription = async (req: Request, res: Response) => {};
-  updateSubscribedUserSubscription = async (req: Request, res: Response) => {};
+  deleteSubscribedUserSubscription = async (req: Request, res: Response) => {
+    const userId = req.params.userId;
+    const subscriptionId = req.params.subscriptionId;
+    try {
+      const subscriptionResult = await db.subscriptionsOnUsers.findUnique({
+        where: { id: subscriptionId },
+        select: { id: true },
+      });
+      const userResult = await db.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
 
-  // createPrivateSubscription = async (req: Request, res: Response) => {
-  //   const userId = req.params.userId;
-  //   console.log(userId);
-  //   try {
-  //     const [result] = await db.$transaction([
-  //       // 1. Check if userId is valid
-  //       db.user.findUnique({ where: { id: userId } }),
-  //       // Roll back if not valid
-  //       // if valid - 2. Create a subscription for the user
-  //       db.subscription.create({
-  //         data: {
-  //           name: req.body.name,
-  //           image_url: req.body.imageUrl,
-  //           category: req.body.category,
-  //           user_id: userId,
-  //         },
-  //       }),
-  //     ]);
-  //     res.status(200).send("Subscription is created successfully!");
-  //   } catch (error: any) {
-  //     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-  //       if (error.code === "P2003") {
-  //         res.status(400).json({
-  //           message: "Operation failed because the user id does not exists",
-  //         });
-  //       } else if (error.code === "P2002") {
-  //         res.status(400).json({
-  //           message: "Something went wrong",
-  //         });
-  //       }
-  //     }
-  //   }
-  // };
+      // if invalid userId & subscriptionId
+      if (userResult == undefined && subscriptionResult == undefined)
+        throw new Error("1");
+      // if invalid userId
+      else if (userResult == undefined) {
+        throw new Error("2");
+      }
+      // if invalid subscriptionid
+      else if (subscriptionResult == undefined) {
+        throw new Error("3");
+      }
+      await db.subscriptionsOnUsers.delete({
+        where: {
+          id: subscriptionId,
+        },
+      });
 
-  // delete = async (req: Request, res: Response) => {
-  //   try {
-  //     const subscriptionId = req.params.subscriptionId;
-  //     res.status(201).json("done");
-  //   } catch (error) {
-  //     res.status(400).json({ error: "An error occurred" });
-  //   }
-  // };
+      res.status(200).json({ message: "success" });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "1")
+          res.status(404).json({
+            error: "The provided user id and subscription id cannot be found",
+          });
+        else if (error.message === "2")
+          res
+            .status(404)
+            .json({ error: "The provided user id cannot be found" });
+        else if (error.message === "3")
+          res.status(404).json({
+            error: "The provided subscription id cannot be found",
+          });
+      }
+    }
+  };
+  updateSubscribedUserSubscription = async (req: Request, res: Response) => {
+    const {
+      planName,
+      planPrice,
+      billingPeriod,
+      paymentStartDate,
+      paymentEndDate,
+      notificationType,
+      notificationFrequency,
+      notificationTime,
+      notes,
+    } = req.body;
 
-  // update = async (req: Request, res: Response) => {
-  //   try {
-  //     // Retrieves user information and authenticates against Clerk
-  //     res.status(201).json("done");
-  //   } catch (error) {
-  //     res.status(400).json({ error: "An error occurred" });
-  //   }
-  // };
+    const paymentNextDate = returnPaymentNextDate(
+      paymentStartDate,
+      billingPeriod
+    );
+    const { value, frequency } = parseBillingPeriod(billingPeriod);
+
+    const formattedNotificationFrequency = parseNotificationPeriod(
+      notificationFrequency
+    );
+
+    const hasNotifications = returnHasNotification(notificationType);
+    const userId = req.params.userId;
+    const subscriptionId = req.params.subscriptionId;
+    try {
+      const subscriptionResult = await db.subscriptionsOnUsers.findUnique({
+        where: { id: subscriptionId },
+        select: { id: true },
+      });
+      const userResult = await db.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
+      // if invalid userId & subscriptionId
+      if (userResult == undefined && subscriptionResult == undefined)
+        throw new Error("1");
+      // if invalid userId
+      else if (userResult == undefined) {
+        throw new Error("2");
+      }
+      // if invalid subscriptionid
+      else if (subscriptionResult == undefined) {
+        throw new Error("3");
+      }
+      await db.subscriptionsOnUsers.update({
+        where: {
+          id: subscriptionId,
+        },
+
+        data: {
+          payment_start_date: paymentStartDate,
+          payment_end_date: paymentEndDate,
+          payment_next_date: paymentNextDate,
+          has_notifications: hasNotifications,
+          notification_type: notificationType,
+          notification_frequency: formattedNotificationFrequency,
+          notification_time_of_day: notificationTime,
+          subcription_plan: {
+            update: {
+              name: planName,
+              price: planPrice,
+              billing_period_value: value,
+              billing_period_frequency: frequency,
+            },
+          },
+        },
+      });
+
+      res.status(200).json({ message: "success" });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "1")
+          res.status(404).json({
+            error: "The provided user id and subscription id cannot be found",
+          });
+        else if (error.message === "2")
+          res
+            .status(404)
+            .json({ error: "The provided user id cannot be found" });
+        else if (error.message === "3")
+          res.status(404).json({
+            error: "The provided subscription id cannot be found",
+          });
+      }
+    }
+  };
 }
 
 export default SubscriptionController;

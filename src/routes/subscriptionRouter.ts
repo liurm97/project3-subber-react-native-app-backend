@@ -43,15 +43,15 @@ subscriptionRouter.post(
 );
 
 // // Delete a subscription in `My Subscriptions`
-// subscriptionRouter.delete(
-//   "/subscribed/:subscribedId/users/:userId",
-//   deleteSubscribedUserSubscription
-// );
+subscriptionRouter.delete(
+  "/subscribed/:subscriptionId/users/:userId",
+  subscriptionController.deleteSubscribedUserSubscription
+);
 
 // // Update a subscription in `My Subscriptions`
-// subscriptionRouter.patch(
-//   "/subscribed/:subscribedId/users/:userId",
-//   updateSubscribedUserSubscription
-// );
+subscriptionRouter.patch(
+  "/subscribed/:subscriptionId/users/:userId",
+  subscriptionController.updateSubscribedUserSubscription
+);
 
 export default subscriptionRouter;
