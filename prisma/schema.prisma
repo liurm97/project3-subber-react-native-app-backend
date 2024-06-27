@@ -20,6 +20,7 @@ enum SubscriptionCategory {
   video_streaming
   food_delivery
   insurance
+  cloud_storage
   others
 }
 
@@ -59,6 +60,7 @@ model Subscription {
   name String @unique
   image_url String 
   category SubscriptionCategory 
+  category_url String
   user_id String?
   user User? @relation(fields: [user_id], references: [id])//accept null -> The default 10 subscription
   subscribed_users SubscriptionsOnUsers[]

@@ -15,7 +15,6 @@ import {
   NotificationType,
   SubscriptionCategory,
 } from "@prisma/client";
-import { create } from "domain";
 
 class SubscriptionController {
   constructor() {}
@@ -221,8 +220,9 @@ class SubscriptionController {
     const userId = req.params.userId;
     const {
       subscriptionName,
-      image_url,
+      imageUrl,
       category,
+      categoryUrl,
       planName,
       planPrice,
       billingPeriod,
@@ -256,8 +256,9 @@ class SubscriptionController {
           data: {
             id: subscriptionId,
             name: subscriptionName,
-            image_url: image_url,
+            image_url: imageUrl,
             category: category,
+            category_url: categoryUrl,
             user_id: userId,
           },
         }),
@@ -300,53 +301,115 @@ class SubscriptionController {
   };
 
   listSubscribedSubscriptions = async (req: Request, res: Response) => {
+    // Defaults to all subscriptions
+    // Optional Year & Month query params
+    let { year, month } = req.query;
+    console.log(year, month);
     const userId = req.params.userId;
     try {
-      const { id }: any = await db.user.findUnique({
+      const userResult = await db.user.findUnique({
         where: { id: userId },
         select: { id: true },
       });
 
-      // retrive subscribed subscriptions
-      /** Details to retrieve | Model
-       1. Subscription name | subscription
-       2. Subscription image_url | subscription
-       3. Plan price | plan
-       4. Plan billing_period_value | plan
-       5. Plan billing_period_frequency | plan
-       */
+      // if userId is not valid
+      if (userResult == null)
+        res.status(404).json({
+          message: `user id ${userId} cannot be found. please try again`,
+        });
+      // else if userId is valid
+      else {
+        if (year === undefined && month === undefined) {
+          // if year and month params are not provided - Defaults to all subscriptions
+          const subscribedSubscriptions =
+            await db.subscriptionsOnUsers.findMany({
+              where: {
+                user_id: {
+                  equals: userId,
+                },
+              },
+              select: {
+                id: true,
+                subcription_plan: {
+                  select: {
+                    price: true,
+                    billing_period_value: true,
+                    billing_period_frequency: true,
+                  },
+                },
+                subscription: {
+                  select: {
+                    name: true,
+                    image_url: true,
+                  },
+                },
+              },
+            });
+          res.status(200).json({
+            userId: userId,
+            message: "success",
+            subscriptions: subscribedSubscriptions,
+          });
+        }
 
-      const subscribedSubscriptions = await db.subscriptionsOnUsers.findMany({
-        where: {
-          user_id: {
-            equals: userId,
-          },
-        },
-        select: {
-          id: true,
-          subcription_plan: {
-            select: {
-              price: true,
-              billing_period_value: true,
-              billing_period_frequency: true,
-            },
-          },
-          subscription: {
-            select: {
-              name: true,
-              image_url: true,
-            },
-          },
-        },
-      });
-      res
-        .status(200)
-        .json({ message: "success", subscriptions: subscribedSubscriptions });
-    } catch (error) {
-      if (error instanceof TypeError) {
-        res.status(404).json({ error: "The provided user id cannot be found" });
+        // if year and month params are provided
+        else {
+          // format date
+          if (Number(month) < 10) month = `0${Number(month)}`.toString();
+          const formattedDateBeginningOfMonth = dayjs(
+            new Date(`${year}-${month}-01T12:00:00`)
+          ).format("YYYY-MM-DD");
+
+          const formattedDateEndOfMonth = dayjs(formattedDateBeginningOfMonth)
+            .endOf("month")
+            .format("YYYY-MM-DD");
+
+          const subscribedSubscriptions =
+            await db.subscriptionsOnUsers.findMany({
+              where: {
+                AND: [
+                  {
+                    user_id: {
+                      equals: userId,
+                    },
+                  },
+                  {
+                    payment_next_date: {
+                      gte: formattedDateBeginningOfMonth,
+                    },
+                  },
+                  {
+                    payment_next_date: {
+                      lte: formattedDateEndOfMonth,
+                    },
+                  },
+                ],
+              },
+              select: {
+                id: true,
+                subcription_plan: {
+                  select: {
+                    price: true,
+                    billing_period_value: true,
+                    billing_period_frequency: true,
+                  },
+                },
+                subscription: {
+                  select: {
+                    name: true,
+                    image_url: true,
+                  },
+                },
+              },
+            });
+          res.status(200).json({
+            userId: userId,
+            message: "success",
+            subscriptions: subscribedSubscriptions,
+          });
+        }
       }
-    }
+    } catch (error) {}
   };
   deleteSubscribedUserSubscription = async (req: Request, res: Response) => {
     const userId = req.params.userId;
@@ -456,6 +519,7 @@ class SubscriptionController {
           notification_type: notificationType,
           notification_frequency: formattedNotificationFrequency,
           notification_time_of_day: notificationTime,
+          notes: notes,
           subcription_plan: {
             update: {
               name: planName,
