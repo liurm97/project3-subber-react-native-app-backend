@@ -79,6 +79,7 @@ class SubscriptionController {
               },
               select: {
                 name: true,
+                image_url: true,
               },
             }),
           ]);
@@ -171,11 +172,27 @@ class SubscriptionController {
       notes,
     } = req.body;
 
+    let paymentNextDate: undefined | string = undefined;
+    console.log("paymentStartDate", paymentStartDate);
+    console.log("paymentNextDate", paymentNextDate);
+    if (
+      dayjs(paymentStartDate).isAfter(dayjs(new Date()).format("YYYY-MM-DD"))
+    ) {
+      paymentNextDate = dayjs(paymentStartDate).format("YYYY-MM-DD");
+      console.log("a future date");
+    }
     // format values
-    const paymentNextDate = returnPaymentNextDate(
-      paymentStartDate,
-      billingPeriod
-    );
+    else {
+      paymentNextDate = returnPaymentNextDate(paymentStartDate, billingPeriod);
+      console.log("Not a future date");
+    }
+    console.log("paymentStartDate", paymentStartDate);
+    console.log("paymentNextDate", paymentNextDate);
+    // format values
+    // const paymentNextDate = returnPaymentNextDate(
+    //   paymentStartDate,
+    //   billingPeriod
+    // );
     const { value, frequency } = parseBillingPeriod(billingPeriod);
 
     // check that userId is valid
@@ -200,7 +217,7 @@ class SubscriptionController {
               user_id: userId,
               subscription_id: subscriptionId,
               payment_start_date: paymentStartDate,
-              payment_next_date: paymentNextDate,
+              payment_next_date: paymentNextDate!,
               payment_end_date: paymentEndDate,
               has_notifications: false,
               notification_type: notificationType,
@@ -234,11 +251,22 @@ class SubscriptionController {
       notes,
     } = req.body;
 
+    let paymentNextDate: undefined | string = undefined;
+    console.log("paymentStartDate", paymentStartDate);
+    console.log("paymentNextDate", paymentNextDate);
+    if (
+      dayjs(paymentStartDate).isAfter(dayjs(new Date()).format("YYYY-MM-DD"))
+    ) {
+      paymentNextDate = dayjs(paymentStartDate).format("YYYY-MM-DD");
+      console.log("a future date");
+    }
     // format values
-    const paymentNextDate = returnPaymentNextDate(
-      paymentStartDate,
-      billingPeriod
-    );
+    else {
+      paymentNextDate = returnPaymentNextDate(paymentStartDate, billingPeriod);
+      console.log("Not a future date");
+    }
+    console.log("paymentStartDate", paymentStartDate);
+    console.log("paymentNextDate", paymentNextDate);
     const { value, frequency } = parseBillingPeriod(billingPeriod);
     const planId = v4();
     const subscriptionId = v4();
@@ -274,7 +302,7 @@ class SubscriptionController {
                 user_id: userId,
                 subscription_id: subscriptionId,
                 payment_start_date: paymentStartDate,
-                payment_next_date: paymentNextDate,
+                payment_next_date: paymentNextDate!,
                 payment_end_date: paymentEndDate,
                 has_notifications: false,
                 notification_type: notificationType,
@@ -330,6 +358,9 @@ class SubscriptionController {
               },
               select: {
                 id: true,
+                payment_start_date: true,
+                payment_next_date: true,
+                payment_end_date: true,
                 subcription_plan: {
                   select: {
                     price: true,
@@ -387,6 +418,9 @@ class SubscriptionController {
               },
               select: {
                 id: true,
+                payment_start_date: true,
+                payment_next_date: true,
+                payment_end_date: true,
                 subcription_plan: {
                   select: {
                     price: true,

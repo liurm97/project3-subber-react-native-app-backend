@@ -6,16 +6,20 @@ class UserController {
   constructor() {}
 
   register = async (req: Request, res: Response) => {
+    const { email, clerkUserId } = req.body;
+    console.log("email", email);
+    console.log("clerkUserId", clerkUserId);
     try {
-      await db.user.create({
+      const result = await db.user.create({
         data: {
-          clerk_user_id: crypto.randomUUID(),
-          first_name: "John2",
-          last_name: "Doe",
-          email: "john2.doe@gmail.com",
+          clerk_user_id: clerkUserId,
+          email: email,
         },
       });
-      res.status(201).json({ message: "user created successfully" });
+      console.log(result);
+      res
+        .status(201)
+        .json({ message: "user created successfully", result: result });
     } catch (error: any) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2002") {
