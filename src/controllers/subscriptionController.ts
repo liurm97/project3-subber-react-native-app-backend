@@ -15,12 +15,30 @@ import {
   NotificationType,
   SubscriptionCategory,
 } from "@prisma/client";
+import { subscribe } from "diagnostics_channel";
+
+export type SubscriptionType = {
+  id: string;
+  name: string;
+  image_url: string;
+};
+
+export type Category = {
+  category: string;
+  category_url: string;
+  data: SubscriptionType[];
+};
+
+export type availableSubscriptionsOutput = {
+  categories: Category[];
+};
 
 class SubscriptionController {
   constructor() {}
 
   // 1. List all available subscriptions in `CreateSubscription`
   listAvailableUserSubscriptions = async (req: Request, res: Response) => {
+    const view = req.query.view;
     const userId = req.params.userId;
     const category: any = req.query.category;
     console.log("category", category);
@@ -31,6 +49,11 @@ class SubscriptionController {
         any,
         any
       ] = [undefined, undefined, undefined];
+
+      if (userId == null)
+        return res.status(404).json({
+          message: `user id ${userId} cannot be found. please try again`,
+        });
 
       // -- If category is provided into the query
       if (category) {
@@ -58,7 +81,10 @@ class SubscriptionController {
               },
               select: {
                 name: true,
+                id: true,
                 image_url: true,
+                category: true,
+                category_url: true,
               },
             }),
             // 3. Get all private subscriptions
@@ -79,7 +105,10 @@ class SubscriptionController {
               },
               select: {
                 name: true,
+                id: true,
                 image_url: true,
+                category: true,
+                category_url: true,
               },
             }),
           ]);
@@ -101,6 +130,10 @@ class SubscriptionController {
               },
               select: {
                 name: true,
+                id: true,
+                image_url: true,
+                category: true,
+                category_url: true,
               },
             }),
             // 3. Get all private subscriptions
@@ -112,20 +145,62 @@ class SubscriptionController {
               },
               select: {
                 name: true,
+                id: true,
+                image_url: true,
+                category: true,
+                category_url: true,
               },
             }),
           ]);
       }
-      if (uniqueUserId == null)
-        res.status(404).json({
-          message: `user id ${userId} cannot be found. please try again`,
+
+      const combinedSubscriptions = [
+        ...publicSubscriptions,
+        ...privateSubscriptions,
+      ];
+      // View list
+      if (view === "list") {
+        const categories = [
+          "music_streaming",
+          "video_streaming",
+          "food_delivery",
+          "insurance",
+          "cloud_storage",
+          "others",
+        ];
+
+        const output: availableSubscriptionsOutput = { categories: [] };
+        categories.forEach((category) => {
+          //category = food_delivery
+          const subscriptions = combinedSubscriptions.filter(
+            (subscription) => subscription.category === category
+          );
+          const categoryUrl: string = subscriptions[0]?.category_url;
+          const categorySubscriptions: any[] = subscriptions.map(
+            (subscription) =>
+              new Object({
+                name: subscription.name,
+                image_url: subscription.image_url,
+                id: subscription.id,
+              })
+          );
+          output.categories.push({
+            category:
+              category.replace("_", " ").charAt(0).toUpperCase() +
+              category.replace("_", " ").slice(1),
+            category_url: categoryUrl,
+            data: categorySubscriptions,
+          });
         });
-      else
+        // );
+        console.log("output", output);
         res.status(200).json({
           message: "success",
           userId: userId,
-          subscriptions: [...publicSubscriptions, ...privateSubscriptions],
+          result: output,
         });
+      }
+      console.log("combinedSubscriptions", combinedSubscriptions);
     } catch (error) {
       res.status(400).json({
         message: "something wrong happened",

@@ -67,7 +67,8 @@ const main = async () => {
           image_url:
             "https://firebasestorage.googleapis.com/v0/b/subber-71436.appspot.com/o/subscriptions%2Fyoutubepremium.png?alt=media&token=57feb523-ead3-4035-9567-8f0ede4a38c3",
           category: "video_streaming",
-          category_url: "https://localhost:3000/video_streaming.png",
+          category_url:
+            "https://firebasestorage.googleapis.com/v0/b/subber-71436.appspot.com/o/categories%2Fvideo_streaming.jpg?alt=media&token=74cf8a7f-e3f5-484a-9c81-2f89d14c1c14",
         },
         {
           name: "Netflix",
@@ -108,6 +109,14 @@ const main = async () => {
           category: "others",
           category_url:
             "https://firebasestorage.googleapis.com/v0/b/subber-71436.appspot.com/o/categories%2Fothers.jpg?alt=media&token=4568595d-eeb9-40a8-a254-0ca0652ae366",
+        },
+        {
+          name: "Spotify",
+          image_url:
+            "https://firebasestorage.googleapis.com/v0/b/subber-71436.appspot.com/o/subscriptions%2Fspotify.png?alt=media&token=f36c40da-c882-40a2-a16d-913ff18c5b09",
+          category: "music_streaming",
+          category_url:
+            "https://firebasestorage.googleapis.com/v0/b/subber-71436.appspot.com/o/categories%2Fmusic_streaming.jpg?alt=media&token=e1a59590-d9bd-4469-8dbf-67563134f7f7",
         },
       ],
     });
